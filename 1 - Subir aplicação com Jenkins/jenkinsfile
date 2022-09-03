@@ -1,0 +1,49 @@
+pipeline{
+    agent any
+    environment {
+        NAME_APP = "dvwa-docker"
+        PORT_APP = "81"
+    }
+
+    stages {
+        stage('Repositório de Código'){
+          steps{
+            git url: 'https://gitlab.com/o_sgoncalves/dvwa-docker'
+            stash 'dvwa-repo'
+          }
+        }
+
+        stage('Build da imagem'){
+            agent { node 'tormin' }
+            steps {
+            git url: 'https://gitlab.com/o_sgoncalves/dvwa-docker'
+                script {
+                    docker.build "$NAME_APP:latest"
+                }
+            }
+        }
+
+        stage('Executando Container'){
+            agent { node 'tormin' }
+            steps {
+                sh '''
+                    if [ ! "$(curl -s localhost:$PORT_APP &> /dev/null)" ]; then
+                    docker run -d --name $NAME_APP -p $PORT_APP:80 $NAME_APP:latest
+                    fi
+                '''
+            }
+        }
+    }
+
+    post {
+        always{
+            chuckNorris()
+        }
+        success {
+            echo "Pipeline executado com sucesso!!"
+        }
+        failure {
+            echo "Pipeline falhou!"
+        }
+    }
+}
